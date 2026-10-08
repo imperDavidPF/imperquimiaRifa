@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Empleado {
+  id             String  @id @default(cuid())
+  numeroEmpleado String  @unique
+  nombre         String
+  rol            String // 'votante' | 'admin_comercial' | 'direccion_general'
+  participanteId String?
+
+  participante Participante? @relation(fields: [participanteId], references: [id])
+}
+
+model Participante {
+  id             String    @id @default(cuid())
+  numeroEmpleado String    @unique
+  nombre         String
+  departamento   String    @default("")
+  puesto         String    @default("")
+  area           String
+  tipo           String    @default("no_comercial") // 'comercial' | 'no_comercial'
+  estatus        String    @default("activo") // 'activo' | 'inactivo'
+  fechaAlta      DateTime  @default(now())
+  fechaBaja      DateTime?
+
+  empleados      Empleado[]
+  nominaciones   Nominacion[]
+  filasMatriz    FilaMatriz[]
+  premiosGanados GanadorPremio[]
+}
+
+model VentanaVotacion {
+  mesClave    String   @id
+  mesEtiqueta String
+  fechaInicio DateTime
+  fechaFin    DateTime
+  abierta     Boolean  @default(true)
+}
+
+model VotoHistorico {
+  id                    String   @id @default(cuid())
+  mesClave              String
+  votanteNumeroEmpleado String
+  folios                String[]
+  fechaEmision          DateTime @default(now())
+
+  nominaciones Nominacion[]
+
+  @@unique([mesClave, votanteNumeroEmpleado])
+}
+
+model Nominacion {
+  id             String    @id @default(cuid())
+  votoId         String
+  participanteId String
+  boletos        Int
+  justificacion  String
+  estado         String    @default("pendiente") // 'pendiente' | 'aprobado' | 'rechazado'
+  fechaRevision  DateTime?
+
+  voto         VotoHistorico @relation(fields: [votoId], references: [id], onDelete: Cascade)
+  participante Participante  @relation(fields: [participanteId], references: [id])
+}
+
+
+model CierreMesVentas {
+  mesClave        String    @id
+  mesEtiqueta     String
+  aprobado        Boolean   @default(false)
+  fechaGuardado   DateTime  @default(now())
+  fechaAprobacion DateTime?
+
+  filas FilaMatriz[]
+}
+
+model FilaMatriz {
+  id                  String  @id @default(cuid())
+  cierreMesClave      String
+  participanteId      String
+  cuotaCumplida       Boolean @default(false)
+  bloque              String?
+  ventaExtra          Float   @default(0)
+  ventaExtraCastigada Float   @default(0)
+  especificaciones    Int     @default(0)
+
+  cierre       CierreMesVentas @relation(fields: [cierreMesClave], references: [mesClave], onDelete: Cascade)
+  participante Participante    @relation(fields: [participanteId], references: [id])
+
+  @@unique([cierreMesClave, participanteId])
+}
+
+model Premio {
+  id        String  @id @default(cuid())
+  nombre    String
+  categoria String // 'mayor' | 'menor'
+  orden     Int
+  imagenUrl String?
+  sorteado  Boolean @default(false)
+
+  ganador GanadorPremio?
+}
+
+model GanadorPremio {
+  id             String   @id @default(cuid())
+  premioId       String   @unique
+  participanteId String
+  folioGanador   String
+  fechaSorteo    DateTime @default(now())
+
+  premio       Premio       @relation(fields: [premioId], references: [id])
+  participante Participante @relation(fields: [participanteId], references: [id])
+}
