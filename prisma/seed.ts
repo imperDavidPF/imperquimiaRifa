@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { parsearPersonalDesdeBuffer } from "../src/utils/parseExcelPersonal.js";
 
 const prisma = new PrismaClient();
@@ -11,9 +11,21 @@ const ADMINS_GENERICOS = [
 ];
 
 async function main() {
+    // Los admins genéricos se siembran siempre, sin depender del Excel: son el acceso
+    // inicial para entrar a la pantalla de administración y subir el Excel desde ahí.
+    for (const admin of ADMINS_GENERICOS) {
+        await prisma.empleado.upsert({
+            where: { numeroEmpleado: admin.numeroEmpleado },
+            update: { nombre: admin.nombre, rol: admin.rol },
+            create: admin,
+        });
+    }
+    console.log(`Admins genéricos listos: ${ADMINS_GENERICOS.map((a) => a.numeroEmpleado).join(", ")}`);
+
     const rutaExcel = process.env.PERSONAL_XLSX_PATH;
-    if (!rutaExcel) {
-        throw new Error("Define PERSONAL_XLSX_PATH en tu .env apuntando al Excel de listado de personal.");
+    if (!rutaExcel || !existsSync(rutaExcel)) {
+        console.log("PERSONAL_XLSX_PATH no está definido o el archivo no existe: se omite la carga del Excel.");
+        return;
     }
 
     const filas = parsearPersonalDesdeBuffer(readFileSync(rutaExcel));
@@ -45,15 +57,7 @@ async function main() {
         });
     }
 
-    for (const admin of ADMINS_GENERICOS) {
-        await prisma.empleado.upsert({
-            where: { numeroEmpleado: admin.numeroEmpleado },
-            update: { nombre: admin.nombre, rol: admin.rol },
-            create: admin,
-        });
-    }
-
-    console.log(`Seed completado: ${filas.length} participantes/empleados + ${ADMINS_GENERICOS.length} admins genéricos.`);
+    console.log(`Seed completado: ${filas.length} participantes/empleados del Excel.`);
 }
 
 main()
