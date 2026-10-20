@@ -29,10 +29,11 @@ model Participante {
   fechaAlta      DateTime  @default(now())
   fechaBaja      DateTime?
 
-  empleados      Empleado[]
-  nominaciones   Nominacion[]
-  filasMatriz    FilaMatriz[]
-  premiosGanados GanadorPremio[]
+  empleados        Empleado[]
+  nominaciones     Nominacion[]
+  filasMatriz      FilaMatriz[]
+  premiosGanados   GanadorPremio[]
+  baseBloqueVentas BaseBloqueVentas?
 }
 
 model VentanaVotacion {
@@ -84,6 +85,7 @@ model FilaMatriz {
   cierreMesClave      String
   participanteId      String
   cuotaCumplida       Boolean @default(false)
+  detalleCuota        String?
   bloque              String?
   ventaExtra          Float   @default(0)
   ventaExtraCastigada Float   @default(0)
@@ -93,6 +95,15 @@ model FilaMatriz {
   participante Participante    @relation(fields: [participanteId], references: [id])
 
   @@unique([cierreMesClave, participanteId])
+}
+
+model BaseBloqueVentas {
+  id             String @id @default(cuid())
+  participanteId String @unique
+  bloque         String
+  baseMensual    Float
+
+  participante Participante @relation(fields: [participanteId], references: [id])
 }
 
 model Premio {
