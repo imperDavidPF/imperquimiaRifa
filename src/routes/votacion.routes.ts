@@ -64,6 +64,11 @@ votacionRouter.post("/votos", asyncHandler( async (req, res) => {
     }
 }));
 
+votacionRouter.delete("/votos/:id", asyncHandler( async (req, res) => {
+    await prisma.votoHistorico.delete({ where: { id: req.params.id } });
+    res.status(204).send();
+}));
+
 votacionRouter.patch("/nominaciones/:id", asyncHandler( async (req, res) => {
     const { estado } = req.body as { estado?: "pendiente" | "aprobado" | "rechazado" };
     if (!estado || !["pendiente", "aprobado", "rechazado"].includes(estado)) {
