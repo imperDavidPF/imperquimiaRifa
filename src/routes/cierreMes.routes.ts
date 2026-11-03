@@ -81,9 +81,9 @@ cierreMesRouter.post(
         });
         const participanteIdPorNumero = new Map(participantesPorNumero.map((p) => [p.numeroEmpleado, p.id]));
 
-        // Dos numeroEmpleado distintos del Excel pueden resolver al mismo participanteId
-        // (p.ej. un numeroEmpleado duplicado por error de captura); se agregan en vez de
-        // romper el createMany, que exige (mesClave, participanteId, canal) unico.
+        // El mismo numeroEmpleado puede aparecer dos veces en el Excel para el mismo canal
+        // (p.ej. cubre dos CEBEs bajo el mismo canal); se agregan en vez de romper el
+        // createMany, que exige (mesClave, participanteId, canal) unico.
         const ventaCanalPorClave = new Map<string, { participanteId: string; cebe: string; canal: string; meta: number; venta: number }>();
         for (const f of filas) {
             const participanteId = participanteIdPorNumero.get(f.numeroEmpleado);
@@ -92,6 +92,9 @@ cierreMesRouter.post(
             const clave = `${participanteId}|${f.canal}`;
             const existente = ventaCanalPorClave.get(clave);
             if (existente) {
+                console.warn(
+                    `[cierre-mes] Fila duplicada en Excel: numeroEmpleado=${f.numeroEmpleado} nombre="${f.nombre}" canal="${f.canal}" mesClave=${mesClave} — se suman venta/meta en vez de crear dos filas.`
+                );
                 existente.meta += f.meta;
                 existente.venta += f.venta;
             } else {
