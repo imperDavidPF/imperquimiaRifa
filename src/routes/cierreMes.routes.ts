@@ -81,19 +81,28 @@ cierreMesRouter.post(
         });
         const participanteIdPorNumero = new Map(participantesPorNumero.map((p) => [p.numeroEmpleado, p.id]));
 
+        // Dos numeroEmpleado distintos del Excel pueden resolver al mismo participanteId
+        // (p.ej. un numeroEmpleado duplicado por error de captura); se agregan en vez de
+        // romper el createMany, que exige (mesClave, participanteId, canal) unico.
+        const ventaCanalPorClave = new Map<string, { participanteId: string; cebe: string; canal: string; meta: number; venta: number }>();
+        for (const f of filas) {
+            const participanteId = participanteIdPorNumero.get(f.numeroEmpleado);
+            if (!participanteId) continue;
+
+            const clave = `${participanteId}|${f.canal}`;
+            const existente = ventaCanalPorClave.get(clave);
+            if (existente) {
+                existente.meta += f.meta;
+                existente.venta += f.venta;
+            } else {
+                ventaCanalPorClave.set(clave, { participanteId, cebe: f.cebe, canal: f.canal, meta: f.meta, venta: f.venta });
+            }
+        }
+
         await prisma.$transaction([
             prisma.ventaCanalMes.deleteMany({ where: { mesClave } }),
             prisma.ventaCanalMes.createMany({
-                data: filas
-                    .filter((f) => participanteIdPorNumero.has(f.numeroEmpleado))
-                    .map((f) => ({
-                        mesClave,
-                        participanteId: participanteIdPorNumero.get(f.numeroEmpleado)!,
-                        cebe: f.cebe,
-                        canal: f.canal,
-                        meta: f.meta,
-                        venta: f.venta,
-                    })),
+                data: [...ventaCanalPorClave.values()].map((v) => ({ mesClave, ...v })),
             }),
         ]);
 
