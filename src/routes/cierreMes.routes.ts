@@ -70,8 +70,32 @@ cierreMesRouter.post(
         if (!req.file) {
             return res.status(400).json({ error: "Debes adjuntar el archivo de vendedores" });
         }
+        const { mesClave } = req.params;
 
         const filas = parsearVendedoresDesdeBuffer(req.file.buffer);
+
+        // Premio Efectivo usa el mismo detalle de venta/meta por canal que este Excel trae;
+        // se refresca por completo en cada reproceso del mes para no dejar canales obsoletos.
+        const participantesPorNumero = await prisma.participante.findMany({
+            where: { numeroEmpleado: { in: filas.map((f) => f.numeroEmpleado) } },
+        });
+        const participanteIdPorNumero = new Map(participantesPorNumero.map((p) => [p.numeroEmpleado, p.id]));
+
+        await prisma.$transaction([
+            prisma.ventaCanalMes.deleteMany({ where: { mesClave } }),
+            prisma.ventaCanalMes.createMany({
+                data: filas
+                    .filter((f) => participanteIdPorNumero.has(f.numeroEmpleado))
+                    .map((f) => ({
+                        mesClave,
+                        participanteId: participanteIdPorNumero.get(f.numeroEmpleado)!,
+                        cebe: f.cebe,
+                        canal: f.canal,
+                        meta: f.meta,
+                        venta: f.venta,
+                    })),
+            }),
+        ]);
 
         // Regla 1 · Cuota por canal
         const resultadosCuota = evaluarCuotaPorCanal(filas);

@@ -51,8 +51,8 @@ participantesRouter.post("/", asyncHandler(async (req, res) => {
 
 participantesRouter.patch("/:id", asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { nombre, departamento, puesto, area, tipo } = req.body as {
-        nombre?: string; departamento?: string; puesto?: string; area?: string; tipo?: string;
+    const { nombre, departamento, puesto, area, tipo, supervisorId } = req.body as {
+        nombre?: string; departamento?: string; puesto?: string; area?: string; tipo?: string; supervisorId?: string | null;
     };
 
     const participante = await prisma.participante.update({
@@ -63,6 +63,7 @@ participantesRouter.patch("/:id", asyncHandler(async (req, res) => {
             ...(puesto !== undefined ? { puesto } : {}),
             ...(area !== undefined ? { area } : {}),
             ...(tipo !== undefined ? { tipo: normalizarTipo(tipo) } : {}),
+            ...(supervisorId !== undefined ? { supervisorId } : {}),
         },
     });
 

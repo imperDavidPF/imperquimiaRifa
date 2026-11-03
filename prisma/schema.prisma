@@ -28,12 +28,17 @@ model Participante {
   estatus        String    @default("activo") // 'activo' | 'inactivo'
   fechaAlta      DateTime  @default(now())
   fechaBaja      DateTime?
+  supervisorId   String?
+
+  supervisor   Participante?  @relation("SupervisorDe", fields: [supervisorId], references: [id])
+  supervisados Participante[] @relation("SupervisorDe")
 
   empleados        Empleado[]
   nominaciones     Nominacion[]
   filasMatriz      FilaMatriz[]
   premiosGanados   GanadorPremio[]
   baseBloqueVentas BaseBloqueVentas?
+  ventasCanalMes   VentaCanalMes[]
 }
 
 model VentanaVotacion {
@@ -104,6 +109,29 @@ model BaseBloqueVentas {
   baseMensual    Float
 
   participante Participante @relation(fields: [participanteId], references: [id])
+}
+
+model VentaCanalMes {
+  id             String @id @default(cuid())
+  mesClave       String
+  participanteId String
+  cebe           String @default("")
+  canal          String
+  meta           Float
+  venta          Float
+
+  participante Participante @relation(fields: [participanteId], references: [id])
+
+  @@unique([mesClave, participanteId, canal])
+}
+
+model PremioEfectivoConfig {
+  mesClave         String @id
+  presupuestoBase  Float
+  umbralActivacion Float  @default(5000000)
+  topeMensual      Float  @default(500000)
+  tramos           Json
+  cebesScalingUp   Json
 }
 
 model Premio {

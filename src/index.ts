@@ -6,6 +6,7 @@ import { participantesRouter } from "./routes/participantes.routes.js";
 import { votacionRouter } from "./routes/votacion.routes.js";
 import { tombolaRouter } from "./routes/tombola.routes.js";
 import { cierreMesRouter } from "./routes/cierreMes.routes.js";
+import { premioEfectivoRouter } from "./routes/premioEfectivo.routes.js";
 
 process.on("unhandledRejection", (reason) => {
     console.error("Unhandled promise rejection:", reason);
@@ -26,6 +27,7 @@ app.use("/api/participantes", participantesRouter);
 app.use("/api/votacion", votacionRouter);
 app.use("/api/tombola", tombolaRouter);
 app.use("/api/cierre-mes", cierreMesRouter);
+app.use("/api/premio-efectivo", premioEfectivoRouter);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error(err);
