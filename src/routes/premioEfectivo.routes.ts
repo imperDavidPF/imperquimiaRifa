@@ -48,13 +48,15 @@ premioEfectivoRouter.get("/:mesClave", asyncHandler(async (req, res) => {
     const nombrePorSupervisorId = new Map(todosParticipantes.map((p) => [p.id, p.nombre]));
     const supervisorIdPorParticipanteId = new Map(todosParticipantes.map((p) => [p.id, p.supervisorId]));
 
-    const estaExcluidaDePremio = (f: (typeof filasVenta)[number]) =>
-        esCebeScalingUp(f.cebe, cebesScalingUp) || f.participante.excluidoPremioEfectivo;
+    // Scaling Up sí se saca de la venta de compañía (su venta no cuenta ni para el
+    // acumulable ni para el reparto). excluidoPremioEfectivo es distinto: su venta SI sigue
+    // contando para la venta real/acumulable de compañía, solo que no participa en el
+    // reparto individual (no recibe boletos ni dinero).
+    const filasExcluidasDeCompania = filasVenta.filter((f) => esCebeScalingUp(f.cebe, cebesScalingUp));
+    const filasVentaReal = filasVenta.filter((f) => !esCebeScalingUp(f.cebe, cebesScalingUp));
+    const filasParaReparto = filasVentaReal.filter((f) => !f.participante.excluidoPremioEfectivo);
 
-    const filasExcluidas = filasVenta.filter(estaExcluidaDePremio);
-    const filasElegibles = filasVenta.filter((f) => !estaExcluidaDePremio(f));
-
-    const ventaReal = filasElegibles.reduce((acc, f) => acc + f.venta, 0);
+    const ventaReal = filasVentaReal.reduce((acc, f) => acc + f.venta, 0);
     const compania = calcularBolsaCompania(ventaReal, {
         presupuestoBase: config.presupuestoBase,
         umbralActivacion: config.umbralActivacion,
@@ -64,13 +66,13 @@ premioEfectivoRouter.get("/:mesClave", asyncHandler(async (req, res) => {
 
     const scalingUpExcluido = (() => {
         const mapa = new Map<string, number>();
-        for (const f of filasExcluidas) {
+        for (const f of filasExcluidasDeCompania) {
             mapa.set(f.cebe, (mapa.get(f.cebe) ?? 0) + f.venta);
         }
         return [...mapa.entries()].map(([cebe, venta]) => ({ cebe, venta }));
     })();
 
-    const filasParaCuota: FilaVendedorExcel[] = filasElegibles.map((f) => ({
+    const filasParaCuota: FilaVendedorExcel[] = filasParaReparto.map((f) => ({
         cebe: f.cebe,
         numeroEmpleado: f.participanteId,
         nombre: f.participante.nombre,
