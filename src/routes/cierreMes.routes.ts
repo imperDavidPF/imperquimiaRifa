@@ -85,9 +85,16 @@ cierreMesRouter.post(
         // (p.ej. cubre dos CEBEs bajo el mismo canal); se agregan en vez de romper el
         // createMany, que exige (mesClave, participanteId, canal) unico.
         const ventaCanalPorClave = new Map<string, { participanteId: string; cebe: string; canal: string; meta: number; venta: number }>();
+        let ventaSinParticipante = 0;
         for (const f of filas) {
             const participanteId = participanteIdPorNumero.get(f.numeroEmpleado);
-            if (!participanteId) continue;
+            if (!participanteId) {
+                ventaSinParticipante += f.venta;
+                console.warn(
+                    `[cierre-mes] numeroEmpleado=${f.numeroEmpleado} nombre="${f.nombre}" canal="${f.canal}" venta=${f.venta} no tiene Participante dado de alta — se descarta de VentaCanalMes y Regla 1/2, mesClave=${mesClave}.`
+                );
+                continue;
+            }
 
             const clave = `${participanteId}|${f.canal}`;
             const existente = ventaCanalPorClave.get(clave);
@@ -100,6 +107,12 @@ cierreMesRouter.post(
             } else {
                 ventaCanalPorClave.set(clave, { participanteId, cebe: f.cebe, canal: f.canal, meta: f.meta, venta: f.venta });
             }
+        }
+
+        if (ventaSinParticipante > 0) {
+            console.warn(
+                `[cierre-mes] mesClave=${mesClave}: venta total descartada por numeroEmpleado sin Participante = ${ventaSinParticipante}`
+            );
         }
 
         await prisma.$transaction([
