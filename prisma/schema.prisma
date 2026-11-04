@@ -29,6 +29,8 @@ model Participante {
   fechaAlta      DateTime  @default(now())
   fechaBaja      DateTime?
   supervisorId   String?
+  excluidoBoletos        Boolean @default(false)
+  excluidoPremioEfectivo Boolean @default(false)
 
   supervisor   Participante?  @relation("SupervisorDe", fields: [supervisorId], references: [id])
   supervisados Participante[] @relation("SupervisorDe")

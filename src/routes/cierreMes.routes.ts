@@ -80,6 +80,9 @@ cierreMesRouter.post(
             where: { numeroEmpleado: { in: filas.map((f) => f.numeroEmpleado) } },
         });
         const participanteIdPorNumero = new Map(participantesPorNumero.map((p) => [p.numeroEmpleado, p.id]));
+        const numerosExcluidosBoletos = new Set(
+            participantesPorNumero.filter((p) => p.excluidoBoletos).map((p) => p.numeroEmpleado)
+        );
 
         // El mismo numeroEmpleado puede aparecer dos veces en el Excel para el mismo canal
         // (p.ej. cubre dos CEBEs bajo el mismo canal); se agregan en vez de romper el
@@ -122,8 +125,12 @@ cierreMesRouter.post(
             }),
         ]);
 
+        // numeroEmpleado marcados como excluidoBoletos no participan ni en Regla 1 ni en Regla 2
+        // (p.ej. Ventas Planta, E-Commerce, Desarrollo de Negocios no son vendedores de rifa).
+        const filasParaBoletos = filas.filter((f) => !numerosExcluidosBoletos.has(f.numeroEmpleado));
+
         // Regla 1 · Cuota por canal
-        const resultadosCuota = evaluarCuotaPorCanal(filas);
+        const resultadosCuota = evaluarCuotaPorCanal(filasParaBoletos);
         const noEncontradosCuota: string[] = [];
         const aplicadosCuota: {
             participanteId: string;
@@ -155,7 +162,7 @@ cierreMesRouter.post(
         );
         const participantePorNumero = new Map(basesConParticipante.map((b) => [b.participante.numeroEmpleado, b.participante]));
 
-        const resultadosBloque = evaluarVentaExtraPorBloque(filas, basesPorNumeroEmpleado);
+        const resultadosBloque = evaluarVentaExtraPorBloque(filasParaBoletos, basesPorNumeroEmpleado);
         const aplicadosBloque = resultadosBloque.map((r) => {
             const participante = participantePorNumero.get(r.numeroEmpleado)!;
             return {

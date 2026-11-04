@@ -48,8 +48,11 @@ premioEfectivoRouter.get("/:mesClave", asyncHandler(async (req, res) => {
     const nombrePorSupervisorId = new Map(todosParticipantes.map((p) => [p.id, p.nombre]));
     const supervisorIdPorParticipanteId = new Map(todosParticipantes.map((p) => [p.id, p.supervisorId]));
 
-    const filasExcluidas = filasVenta.filter((f) => esCebeScalingUp(f.cebe, cebesScalingUp));
-    const filasElegibles = filasVenta.filter((f) => !esCebeScalingUp(f.cebe, cebesScalingUp));
+    const estaExcluidaDePremio = (f: (typeof filasVenta)[number]) =>
+        esCebeScalingUp(f.cebe, cebesScalingUp) || f.participante.excluidoPremioEfectivo;
+
+    const filasExcluidas = filasVenta.filter(estaExcluidaDePremio);
+    const filasElegibles = filasVenta.filter((f) => !estaExcluidaDePremio(f));
 
     const ventaReal = filasElegibles.reduce((acc, f) => acc + f.venta, 0);
     const compania = calcularBolsaCompania(ventaReal, {
