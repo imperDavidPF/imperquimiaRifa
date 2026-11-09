@@ -7,6 +7,8 @@ export interface FilaVendedorExcel {
     canal: string;
     meta: number;
     venta: number;
+    numeroGerente?: string;
+    gerente?: string;
 }
 
 export function parsearVendedoresDesdeBuffer(buffer: Buffer): FilaVendedorExcel[] {
@@ -23,5 +25,7 @@ export function parsearVendedoresDesdeBuffer(buffer: Buffer): FilaVendedorExcel[
             canal: String(f.CANAL ?? "").trim(),
             meta: Number(f.META ?? 0),
             venta: Number(f.VENTA ?? 0),
+            numeroGerente: String(f.NUMERO_GERENTE ?? "").trim(),
+            gerente: String(f.GERENTE ?? "").trim(),
         }));
 }

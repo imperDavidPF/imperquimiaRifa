@@ -17,6 +17,17 @@ cierreMesRouter.get("/", asyncHandler(async (_req, res) => {
     res.json(cierres);
 }));
 
+
+cierreMesRouter.get("/:mesClave/ventas-canal", asyncHandler(async (req, res) => {
+    const { mesClave } = req.params;
+    const filas = await prisma.ventaCanalMes.findMany({
+        where: { mesClave },
+        select: { participanteId: true, cebe: true, canal: true, meta: true, venta: true },
+    });
+    res.json(filas);
+}))
+
+
 cierreMesRouter.put("/:mesClave", asyncHandler(async (req, res) => {
     const { mesClave } = req.params;
     const { mesEtiqueta, filas, aprobado, fechaAprobacion } = req.body as {
@@ -83,6 +94,63 @@ cierreMesRouter.post(
         const numerosExcluidosBoletos = new Set(
             participantesPorNumero.filter((p) => p.excluidoBoletos).map((p) => p.numeroEmpleado)
         );
+
+        const gerentePorNumeroEmpleado = new Map<string, {numeroGerente: string; gerente: string}>();
+        for(const f of filas){
+            if(!f.numeroGerente || f.numeroGerente === f.numeroEmpleado) continue;
+            gerentePorNumeroEmpleado.set(f.numeroEmpleado, {numeroGerente: f.numeroGerente, gerente: f.gerente ?? ""});
+        }
+
+        const numerosGerenteDistintos = [...new Set([...gerentePorNumeroEmpleado.values()].map((g) => g.numeroGerente))];
+        const nombrePorNumeroGerente = new Map(
+            [...gerentePorNumeroEmpleado.values()].map((g) => [g.numeroGerente, g.gerente])
+        );
+
+        if (numerosGerenteDistintos.length > 0) {
+            const gerentesExistentes = await prisma.participante.findMany({
+                where: { numeroEmpleado: { in: numerosGerenteDistintos } },
+            });
+            const gerenteIdPorNumero = new Map(gerentesExistentes.map((p) => [p.numeroEmpleado, p.id]));
+
+            const numerosGerenteFaltantes = numerosGerenteDistintos.filter((n) => !gerenteIdPorNumero.has(n));
+            for(const numeroGerente of numerosGerenteFaltantes){
+                const nuevo = await prisma.participante.create({
+                    data: {
+                        numeroEmpleado: numeroGerente,
+                        nombre: nombrePorNumeroGerente.get(numeroGerente) ?? numeroGerente,
+                        area: "",
+                        tipo: "no_comercial"
+                    },
+                });
+                gerenteIdPorNumero.set(numeroGerente, nuevo.id);
+
+                //Igual que el resto del sistema (alta manual, importar excel): todo participante 
+                //nuevo necesita su empleado (rol votante) para poder loguearse
+
+                await prisma.empleado.upsert({
+                    where: {numeroEmpleado: nuevo.numeroEmpleado},
+                    update: {nombre: nuevo.nombre, participanteId: nuevo.id},
+                    create: {numeroEmpleado: nuevo.numeroEmpleado, nombre: nuevo.numeroEmpleado, rol: "votante", participanteId: nuevo.id}
+                });
+
+                console.warn(
+
+                    `[cierre-mes] Gerente numeroEmpleados=${numeroGerente} nombre="${nuevo.nombre}" no existia como Participante - se creo automaticamente desde el excel (con su Empleado de login), mesClave=${mesClave}.`
+                )
+                
+            }
+
+            for (const [numeroEmpleado, { numeroGerente }] of gerentePorNumeroEmpleado) {
+                const vendedorId = participanteIdPorNumero.get(numeroEmpleado);
+                const gerenteId = gerenteIdPorNumero.get(numeroGerente);
+                if (!vendedorId || !gerenteId || vendedorId === gerenteId) continue;
+                await prisma.participante.update({
+                    where: { id: vendedorId },
+                    data: { supervisorId: gerenteId },
+                });
+            }
+
+        }
 
         // El mismo numeroEmpleado puede aparecer dos veces en el Excel para el mismo canal
         // (p.ej. cubre dos CEBEs bajo el mismo canal); se agregan en vez de romper el
